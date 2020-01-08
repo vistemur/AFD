@@ -270,39 +270,6 @@ int is_mergable(t_list* ad, t_list* ev)
     return 0;
 }
 
-void count(t_list **list)
-{
-    t_list* counter1;
-    t_list* counter2;
-    t_list* newEl;
-    int curId;
-    
-    curId = list_size(*list);
-    for (counter1 = *list; counter1; counter1 = counter1->next)
-        for (counter2 = *list; counter2; counter2 = counter2->next)
-            if (is_mergable(counter1->data, counter2->data))
-            {
-                newEl = merge(counter1->data, counter2->data, ++curId);
-                if (newEl)
-                     list_push_back(list, newEl);
-            }
-}
-
-void invert(char* str)
-{
-    int counter;
-    
-    if (str[0] == '-')
-        deleteChar(str, 0);
-    else {
-        counter = str_len(str);
-        while (--counter > -1)
-            str[counter + 1] = str[counter];
-        str[0] = '-';
-    }
-    //dobit
-}
-
 int same(t_list* first, t_list* second)
 {
     int in;
@@ -330,6 +297,50 @@ int same(t_list* first, t_list* second)
     return 1;
 }
 
+
+int is_in_list(t_list *data, t_list *new)
+{
+    t_list* counter;
+    
+    for (counter = data; counter; counter = counter->next)
+        if (same(counter->data, new))
+            return 1;
+    return 0;
+}
+
+void count(t_list **list)
+{
+    t_list* counter1;
+    t_list* counter2;
+    t_list* newEl;
+    int curId;
+    
+    curId = list_size(*list);
+    for (counter1 = *list; counter1; counter1 = counter1->next)
+        for (counter2 = *list; counter2; counter2 = counter2->next)
+            if (is_mergable(counter1->data, counter2->data))
+            {
+                newEl = merge(counter1->data, counter2->data, ++curId);
+                if (newEl && !is_in_list(*list, newEl))
+                    list_push_back(list, newEl);
+            }
+}
+
+void invert(char* str)
+{
+    int counter;
+    
+    if (str[0] == '-')
+        deleteChar(str, 0);
+    else
+    {
+        counter = str_len(str);
+        while (--counter > -1)
+            str[counter + 1] = str[counter];
+        str[0] = '-';
+    }
+}
+
 int list_consists_statement(t_list* list, t_list* statement)
 {
     t_list *counter_el;
@@ -344,7 +355,7 @@ int list_consists_statement(t_list* list, t_list* statement)
     return 0;
 }
 
-void print_answer(t_list* list, int st)
+void print_answer2_rec(t_list *list, int st, t_list **answer)
 {
     t_list *counter_el;
 
@@ -355,14 +366,63 @@ void print_answer(t_list* list, int st)
         {
             if (((t_element*)((t_list*)counter_el->data)->data)->from1)
             {
-                print_answer(list, ((t_element*)((t_list*)counter_el->data)->data)->from1);
-                print_answer(list, ((t_element*)((t_list*)counter_el->data)->data)->from2);
-                print_element(counter_el->data);
+                print_answer2_rec(list, ((t_element*)((t_list*)counter_el->data)->data)->from1, answer);
+                print_answer2_rec(list, ((t_element*)((t_list*)counter_el->data)->data)->from2, answer);
+                list_push_back(answer, counter_el->data);
             }
             break;
         }
         counter_el = counter_el->next;
     }
+}
+
+void change_all_answer(t_list *answer, int old, int new)
+{
+    int counter;
+    t_list *list_counter;
+    
+    counter = new;
+    counter = new;
+    for (list_counter = answer; list_counter && counter; list_counter = list_counter->next)
+        if (((t_element*)((t_list*)(list_counter->data))->data)->from1 == old)
+            ((t_element*)((t_list*)(list_counter->data))->data)->from1 = new;
+        else if (((t_element*)((t_list*)(list_counter->data))->data)->from2 == old)
+            ((t_element*)((t_list*)(list_counter->data))->data)->from2 = new;
+        else if (((t_element*)((t_list*)(list_counter->data))->data)->id == old)
+            ((t_element*)((t_list*)(list_counter->data))->data)->id = new;
+}
+
+int count_base(t_list *list)
+{
+    int answer;
+    
+    answer = 1;
+    while (list && ((t_element*)((t_list*)(list->data))->data)->from1 == 0)
+    {
+        answer++;
+        list = list->next;
+    }
+    return answer;
+}
+
+void print_answer2(t_list *list, int st)
+{
+    t_list *list_counter;
+    t_list *answer;
+    int counter;
+    
+    answer = 0;
+    counter = count_base(list);
+    print_answer2_rec(list, st, &answer);
+    list_counter = answer;
+    while(list_counter)
+    {
+        if (((t_element*)((t_list*)(list_counter->data))->data)->id != counter)
+            change_all_answer(answer, ((t_element*)((t_list*)(list_counter->data))->data)->id, counter);
+        list_counter = list_counter->next;
+        counter++;
+    }
+    printData(answer);
 }
 
 void machine_input(t_list** list, int argc, char** argv)
@@ -372,10 +432,8 @@ void machine_input(t_list** list, int argc, char** argv)
     counter = 0;
     while (++counter < argc - 1)
     {
-        putstr(argv[counter]);
         list_push_back(list, ft_strdup(argv[counter]));
     }
-    list_foreach(*list, putstr);
     list_push_front(list, ft_strdup(argv[counter]));
 }
 
@@ -398,11 +456,12 @@ int main(int argc, char *argv[])
     ans = list_consists_statement(list, statement);
     if (ans)
     {
-        print_answer(list, ans);
+        print_answer2(list, ans);
         putstr("1 + ");
-        putnbr(ans);
+        putnbr(list_consists_statement(list, statement));
         putstr(" -> 0\n");
-    } else
+    }
+    else
         print_str("false");
     clear_list_of_lists(&list);
     list_clear(&statement);
