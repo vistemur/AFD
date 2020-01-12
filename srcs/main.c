@@ -2,6 +2,7 @@
 #include "list.h"
 #include "element.h"
 #include <stdlib.h>
+#include <fcntl.h>
 
 void print_str(void* str)
 {
@@ -110,24 +111,6 @@ t_list* listFromStr(char* str)
     return list;
 }
 
-void fillData(t_list* begin_list)
-{
-    t_list *counter_el;
-    int counter;
-
-    counter = 1;
-    counter_el = begin_list;
-    while (counter_el)
-    {
-        counter_el->data = listFromStr(counter_el->data);
-        ((t_element*)((t_list*)counter_el->data)->data)->id = counter;
-        ((t_element*)((t_list*)counter_el->data)->data)->from1 = 0;
-        ((t_element*)((t_list*)counter_el->data)->data)->from2 = 0;
-        counter_el = counter_el->next;
-        counter++;
-    }
-}
-
 void print_element(t_list* list)
 {
     if (((t_element*)list->data)->from1)
@@ -149,6 +132,50 @@ void print_element(t_list* list)
         list = list->next;
     }
     ft_putchar('\n');
+}
+
+void deleteDublicates(t_list *counter1)
+{
+    t_list *counter2;
+    t_list *suiside;
+    
+    while (counter1)
+    {
+        counter2 = counter1;
+        while (counter2->next)
+        {
+            if (ft_strcmp(((t_element*)(counter1->data))->name, ((t_element*)(counter2->next->data))->name) == 0 && ((t_element*)(counter1->data))->znak == ((t_element*)(counter2->next->data))->znak)
+            {
+                suiside = counter2->next;
+                counter2->next = counter2->next->next;
+                free(suiside->data);
+                free(suiside);
+            }
+            else
+                counter2 = counter2->next;
+        }
+        counter1 = counter1->next;
+    }
+}
+
+
+void fillData(t_list* begin_list)
+{
+    t_list *counter_el;
+    int counter;
+
+    counter = 1;
+    counter_el = begin_list;
+    while (counter_el)
+    {
+        counter_el->data = listFromStr(counter_el->data);
+        ((t_element*)((t_list*)counter_el->data)->data)->id = counter;
+        ((t_element*)((t_list*)counter_el->data)->data)->from1 = 0;
+        ((t_element*)((t_list*)counter_el->data)->data)->from2 = 0;
+        deleteDublicates(counter_el->data);
+        counter_el = counter_el->next;
+        counter++;
+    }
 }
 
 void printData(t_list* begin_list)
@@ -308,7 +335,7 @@ int is_in_list(t_list *data, t_list *new)
     return 0;
 }
 
-void count(t_list **list)
+void count(t_list **list, t_list *statement)
 {
     t_list* counter1;
     t_list* counter2;
@@ -317,12 +344,17 @@ void count(t_list **list)
     
     curId = list_size(*list);
     for (counter1 = *list; counter1; counter1 = counter1->next)
-        for (counter2 = *list; counter2; counter2 = counter2->next)
+        for (counter2 = *list; counter2 != counter1; counter2 = counter2->next)
             if (is_mergable(counter1->data, counter2->data))
             {
                 newEl = merge(counter1->data, counter2->data, ++curId);
+                deleteDublicates(newEl);
                 if (newEl && !is_in_list(*list, newEl))
+                {
                     list_push_back(list, newEl);
+                    if (same(newEl, statement))
+                        return ;
+                }
             }
 }
 
@@ -425,16 +457,65 @@ void print_answer2(t_list *list, int st)
     printData(answer);
 }
 
+void get_file_data(t_list **list, char *fname)
+{
+    int        fl;
+    int        size;
+    char    buf[1];
+    char    *word;
+    int     len;
+    int     st;
+
+    st = 0;
+    len = 0;
+    size = 1;
+    fl = open(fname, O_RDONLY);
+    if (fl < 0)
+        return ;
+    while (size)
+    {
+        size = read(fl, buf, 1);
+        len++;
+    }
+    close(fl);
+    word = (char*)malloc(len * 2 + 1);
+    len = 0;
+    size = 1;
+    fl = open(fname, O_RDONLY);
+    while (size)
+    {
+        size = read(fl, buf, 1);
+        if (buf[0] == '\n')
+        {
+            word[len] = '\0';
+            word[len + 1] = '\0';
+            list_push_back(list, (word + st));
+            st = len + 2;
+            len++;
+        } else
+            word[len] = buf[0];
+        len++;
+    }
+    close(fl);
+}
+
 void machine_input(t_list** list, int argc, char** argv)
 {
     int counter;
+    int frp;
     
+    frp = 1;
     counter = 0;
     while (++counter < argc - 1)
-    {
-        list_push_back(list, ft_strdup(argv[counter]));
-    }
-    list_push_front(list, ft_strdup(argv[counter]));
+        if (ft_strcmp(argv[counter], "--f"))
+            list_push_back(list, ft_strdup(argv[counter]));
+        else
+        {
+            frp = 0;
+            get_file_data(list, argv[++counter]);
+        }
+    if (frp)
+        list_push_front(list, ft_strdup(argv[counter]));
 }
 
 int main(int argc, char *argv[])
@@ -452,7 +533,8 @@ int main(int argc, char *argv[])
     invert(list->data);
     fillData(list);
     printData(list);
-    count(&list);
+    if (!list_consists_statement(list, statement))
+        count(&list, statement);
     ans = list_consists_statement(list, statement);
     if (ans)
     {
