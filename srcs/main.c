@@ -263,7 +263,9 @@ int is_mergable(t_list* ad, t_list* ev)
 {
     t_list* adam;
     t_list* eva;
+    int     dif;
     
+    dif = 0;
     adam = ad;
     while(adam)
     {
@@ -272,7 +274,7 @@ int is_mergable(t_list* ad, t_list* ev)
         {
             if (ft_strcmp(((t_element*)(adam->data))->name, ((t_element*)(eva->data))->name) == 0 && ((t_element*)(adam->data))->znak != ((t_element*)(eva->data))->znak)
             {
-                return 1;
+                dif++;
             }
             eva = eva->next;
         }
@@ -287,13 +289,15 @@ int is_mergable(t_list* ad, t_list* ev)
         {
             if (ft_strcmp(((t_element*)(eva->data))->name, ((t_element*)(adam->data))->name) == 0 && ((t_element*)(eva->data))->znak != ((t_element*)(adam->data))->znak)
             {
-                return 1;
+                dif++;
             }
             adam = adam->next;
         }
         eva = eva->next;
     }
     
+    if (dif == 2)
+        return 1;
     return 0;
 }
 
